@@ -36,6 +36,13 @@ export default function HomeScreen() {
   const today = new Date();
   const todayStr = dateKey();
 
+  const pulseFab = useCallback(() => {
+    Animated.sequence([
+      Animated.timing(fabScale, { toValue: 0.85, duration: 100, useNativeDriver: true }),
+      Animated.spring(fabScale, { toValue: 1, friction: 3, tension: 100, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
   useEffect(() => {
     if (!loaded) return;
     if (!user) {
@@ -48,13 +55,6 @@ export default function HomeScreen() {
   }, [user, onboardingComplete, loaded]);
 
   if (!loaded || !user) return null;
-
-  const pulseFab = useCallback(() => {
-    Animated.sequence([
-      Animated.timing(fabScale, { toValue: 0.85, duration: 100, useNativeDriver: true }),
-      Animated.spring(fabScale, { toValue: 1, friction: 3, tension: 100, useNativeDriver: true }),
-    ]).start();
-  }, []);
 
   function showReward(message, emoji) {
     setRewardMessage(message);
