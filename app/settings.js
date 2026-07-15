@@ -14,7 +14,6 @@ import { useApp } from '../src/context/AppContext';
 import { colors, fontSize, spacing, borderRadius, shadow } from '../src/constants/theme';
 import { mediumTap } from '../src/utils/haptics';
 import { requestPermissions, scheduleDailyReminder, cancelAllReminders } from '../src/utils/notifications';
-import { clearAll } from '../src/utils/storage';
 
 const TIMES = [
   { label: 'Morning', hour: 8, minute: 0 },
@@ -26,8 +25,8 @@ const TIMES = [
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { state, setSettings, setOnboarding } = useApp();
-  const { notificationsEnabled, notificationTime } = state;
+  const { state, setSettings, setOnboarding, signOut } = useApp();
+  const { notificationsEnabled, notificationTime, user } = state;
 
   const [notifEnabled, setNotifEnabled] = useState(notificationsEnabled);
   const [selectedTime, setSelectedTime] = useState(notificationTime || '09:00');
@@ -63,6 +62,24 @@ export default function SettingsScreen() {
     }
   }
 
+  function handleSignOut() {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out? Your data is saved to your account.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: () => {
+            mediumTap();
+            signOut();
+          },
+        },
+      ]
+    );
+  }
+
   function handleReset() {
     Alert.alert(
       'Reset All Data',
@@ -73,7 +90,6 @@ export default function SettingsScreen() {
           text: 'Reset',
           style: 'destructive',
           onPress: async () => {
-            await clearAll();
             setOnboarding(false);
           },
         },
@@ -92,6 +108,26 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {user && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Account</Text>
+            <View style={styles.userCard}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {user.email?.charAt(0).toUpperCase() || '?'}
+                </Text>
+              </View>
+              <View style={styles.userInfo}>
+                <Text style={styles.userEmail}>{user.email}</Text>
+                <Text style={styles.userId}>Signed in</Text>
+              </View>
+              <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
+                <Text style={styles.signOutText}>Sign Out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Notifications</Text>
           <Text style={styles.sectionDesc}>
@@ -212,6 +248,53 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginBottom: spacing.lg,
   },
+  userCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  avatarText: {
+    fontSize: fontSize.lg,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userEmail: {
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  userId: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  signOutBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.danger,
+  },
+  signOutText: {
+    fontSize: fontSize.sm,
+    color: colors.danger,
+    fontWeight: '600',
+  },
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -255,14 +338,6 @@ const styles = StyleSheet.create({
   timeBtnActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
-  },
-  timeLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    color: colors.textMuted,
-  },
-  timeLabelActive: {
-    color: colors.text,
   },
   timeValue: {
     fontSize: fontSize.xs,
