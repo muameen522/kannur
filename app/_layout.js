@@ -1,34 +1,11 @@
-import { useEffect } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, View } from 'react-native';
-import { AppProvider, useApp } from '../src/context/AppContext';
+import { AppProvider } from '../src/context/AppContext';
 import { colors } from '../src/constants/theme';
 
-function RootNavigator() {
-  const { state } = useApp();
-  const { authLoading, user, loaded } = state;
-  const segments = useSegments();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (authLoading || !loaded) return;
-    const inAuthGroup = segments[0] === 'auth';
-    if (!user && !inAuthGroup) {
-      router.replace('/auth');
-    }
-  }, [user, authLoading, loaded]);
-
-  if (authLoading || !loaded) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
+export default function RootLayout() {
   return (
-    <>
+    <AppProvider>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -51,14 +28,6 @@ function RootNavigator() {
         <Stack.Screen name="challenges" />
         <Stack.Screen name="settings" />
       </Stack>
-    </>
-  );
-}
-
-export default function RootLayout() {
-  return (
-    <AppProvider>
-      <RootNavigator />
     </AppProvider>
   );
 }

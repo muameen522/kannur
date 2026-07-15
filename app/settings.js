@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -26,10 +26,16 @@ const TIMES = [
 export default function SettingsScreen() {
   const router = useRouter();
   const { state, setSettings, setOnboarding, signOut } = useApp();
-  const { notificationsEnabled, notificationTime, user } = state;
+  const { notificationsEnabled, notificationTime, user, loaded } = state;
+
+  useEffect(() => {
+    if (loaded && !user) router.replace('/auth');
+  }, [user, loaded]);
 
   const [notifEnabled, setNotifEnabled] = useState(notificationsEnabled);
   const [selectedTime, setSelectedTime] = useState(notificationTime || '09:00');
+
+  if (!user) return null;
 
   async function toggleNotifications(val) {
     mediumTap();

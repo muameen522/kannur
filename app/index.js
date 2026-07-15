@@ -26,7 +26,7 @@ const MONTHS = [
 export default function HomeScreen() {
   const router = useRouter();
   const { state, checkHabit } = useApp();
-  const { habits, challenges, onboardingComplete } = state;
+  const { habits, challenges, onboardingComplete, user, loaded } = state;
 
   const [rewardVisible, setRewardVisible] = useState(false);
   const [rewardMessage, setRewardMessage] = useState('');
@@ -37,10 +37,17 @@ export default function HomeScreen() {
   const todayStr = dateKey();
 
   useEffect(() => {
-    if (!onboardingComplete && state.loaded) {
+    if (!loaded) return;
+    if (!user) {
+      router.replace('/auth');
+      return;
+    }
+    if (!onboardingComplete) {
       router.replace('/onboarding');
     }
-  }, [onboardingComplete, state.loaded]);
+  }, [user, onboardingComplete, loaded]);
+
+  if (!loaded || !user) return null;
 
   const pulseFab = useCallback(() => {
     Animated.sequence([

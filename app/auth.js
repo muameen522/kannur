@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,15 +10,22 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useApp } from '../src/context/AppContext';
 import { colors, fontSize, spacing, borderRadius } from '../src/constants/theme';
 
 export default function AuthScreen() {
-  const { signIn, signUp } = useApp();
+  const router = useRouter();
+  const { signIn, signUp, state } = useApp();
+  const { user } = state;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('signin');
+
+  useEffect(() => {
+    if (user) router.replace('/');
+  }, [user]);
 
   async function handleSubmit() {
     if (!email.trim() || !password.trim()) {
