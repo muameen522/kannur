@@ -38,12 +38,9 @@ function reducer(state, action) {
 
     case 'SIGN_OUT':
       return {
-        ...state,
-        user: null,
-        session: null,
-        habits: [],
-        challenges: [],
-        onboardingComplete: false,
+        ...initialState,
+        loaded: true,
+        authLoading: false,
       };
 
     case 'ADD_HABIT': {
@@ -152,11 +149,76 @@ function getSettingsSlice(state) {
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  // ── Auth ──────────────────────────────────────────────
+  // ── Auth init ──────────────────────────────────────────
 
   useEffect(() => {
-    restoreSession();
+    let cancelled = false;
+
+    async function init() {
+      try {
+        const cached = await loadAllFromCache();
+
+        if (cancelled) return;
+
+        if (cached.user?.session) {
+          dispatch({
+            type: 'SET_AUTH',
+            payload: { user: cached.user.user, session: cached.user.session },
+          });
+          if (cached.habits) {
+            dispatch({
+              type: 'LOAD_STATE',
+              payload: {
+                habits: cached.habits,
+                challenges: cached.challenges || [],
+                ...cached.settings,
+              },
+            });
+          } else {
+            dispatch({ type: 'LOAD_STATE', payload: {} });
+          }
+
+          try {
+            const { data } = await supabase.auth.getSession();
+            if (cancelled) return;
+            if (data?.session?.user) {
+              syncFromSupabase(data.session.user.id);
+            }
+          } catch {
+            // Session expired or network error — user stays cached until they sign out
+          }
+        } else {
+          try {
+            const { data } = await supabase.auth.getSession();
+            if (cancelled) return;
+            if (data?.session?.user) {
+              dispatch({
+                type: 'SET_AUTH',
+                payload: { user: data.session.user, session: data.session },
+              });
+              dispatch({ type: 'LOAD_STATE', payload: {} });
+              syncFromSupabase(data.session.user.id);
+            } else {
+              dispatch({ type: 'SET_AUTH', payload: { user: null, session: null } });
+              dispatch({ type: 'LOAD_STATE', payload: {} });
+            }
+          } catch {
+            if (cancelled) return;
+            dispatch({ type: 'SET_AUTH', payload: { user: null, session: null } });
+            dispatch({ type: 'LOAD_STATE', payload: {} });
+          }
+        }
+      } catch {
+        if (cancelled) return;
+        dispatch({ type: 'SET_AUTH', payload: { user: null, session: null } });
+        dispatch({ type: 'LOAD_STATE', payload: {} });
+      }
+    }
+
+    init();
+
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
       dispatch({
         type: 'SET_AUTH',
         payload: { user: session?.user ?? null, session },
@@ -168,37 +230,12 @@ export function AppProvider({ children }) {
         clearCache();
       }
     });
-    return () => listener?.subscription?.unsubscribe();
-  }, []);
 
-  async function restoreSession() {
-    const cached = await loadAllFromCache();
-    if (cached.user) {
-      dispatch({
-        type: 'SET_AUTH',
-        payload: { user: cached.user.user, session: cached.user.session },
-      });
-      if (cached.habits) dispatch({ type: 'LOAD_STATE', payload: { habits: cached.habits, challenges: cached.challenges || [], ...cached.settings, loaded: true } });
-      if (cached.user.session) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          syncFromSupabase(session.user.id);
-        }
-      }
-    } else {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        dispatch({
-          type: 'SET_AUTH',
-          payload: { user: session.user, session },
-        });
-        syncFromSupabase(session.user.id);
-      } else {
-        dispatch({ type: 'SET_AUTH', payload: { user: null, session: null } });
-        dispatch({ type: 'LOAD_STATE', payload: { loaded: true } });
-      }
-    }
-  }
+    return () => {
+      cancelled = true;
+      listener?.subscription?.unsubscribe();
+    };
+  }, []);
 
   // ── Supabase sync ─────────────────────────────────────
 
@@ -217,10 +254,9 @@ export function AppProvider({ children }) {
       const merged = {
         habits: habits.map(normalizeHabit),
         challenges: challenges.map(normalizeChallenge),
-        onboardingComplete: settings.onboarding_complete ?? state.onboardingComplete,
-        notificationTime: settings.notification_time ?? state.notificationTime,
-        notificationsEnabled: settings.notifications_enabled ?? state.notificationsEnabled,
-        loaded: true,
+        onboardingComplete: settings.onboarding_complete ?? false,
+        notificationTime: settings.notification_time ?? '09:00',
+        notificationsEnabled: settings.notifications_enabled ?? true,
       };
 
       dispatch({ type: 'LOAD_STATE', payload: merged });
@@ -237,11 +273,29 @@ export function AppProvider({ children }) {
     try {
       await Promise.all([
         supabase.from('habits').upsert(
-          state.habits.map((h) => ({ ...h, user_id: user.id, logs: JSON.stringify(h.logs) })),
+          state.habits.map((h) => ({
+            id: h.id,
+            user_id: user.id,
+            name: h.name,
+            emoji: h.emoji,
+            type: h.type,
+            target_count: h.targetCount,
+            logs: JSON.stringify(h.logs),
+            created_at: h.createdAt,
+          })),
           { onConflict: 'id' }
         ),
         supabase.from('challenges').upsert(
-          state.challenges.map((c) => ({ ...c, user_id: user.id, checkIns: JSON.stringify(c.checkIns) })),
+          state.challenges.map((c) => ({
+            id: c.id,
+            user_id: user.id,
+            name: c.name,
+            duration: c.duration,
+            habit_id: c.habitId,
+            start_date: c.startDate,
+            completed: c.completed,
+            check_ins: JSON.stringify(c.checkIns),
+          })),
           { onConflict: 'id' }
         ),
         supabase.from('settings').upsert(
@@ -269,12 +323,6 @@ export function AppProvider({ children }) {
 
   // ── Persistence: cache instantly, sync to supabase in background ──
 
-  useEffect(() => {
-    if (state.loaded) {
-      persistLocally();
-    }
-  }, [state.habits, state.challenges, state.onboardingComplete, state.notificationTime, state.notificationsEnabled]);
-
   const persistLocally = useCallback(async () => {
     await saveAllToCache({
       habits: state.habits,
@@ -283,7 +331,12 @@ export function AppProvider({ children }) {
     });
   }, [state.habits, state.challenges, state]);
 
-  // Sync to Supabase when app goes to background / on mutations
+  useEffect(() => {
+    if (state.loaded && state.user) {
+      persistLocally();
+    }
+  }, [state.habits, state.challenges, state.onboardingComplete, state.notificationTime, state.notificationsEnabled]);
+
   useEffect(() => {
     if (!state.loaded || !state.user) return;
     const timer = setTimeout(() => syncToSupabase(), 2000);
@@ -296,7 +349,7 @@ export function AppProvider({ children }) {
       if (nextState === 'background') syncToSupabase();
     });
     return () => sub.remove();
-  }, [state.user, state.habits, state.challenges]);
+  }, [state.user]);
 
   // ── Auth actions ──────────────────────────────────────
 
@@ -311,7 +364,12 @@ export function AppProvider({ children }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Continue with local sign out even if Supabase call fails
+    }
+    await clearCache();
     dispatch({ type: 'SIGN_OUT' });
   }, []);
 
