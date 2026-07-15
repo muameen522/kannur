@@ -68,22 +68,10 @@ export default function SettingsScreen() {
     }
   }
 
-  function handleSignOut() {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out? Your data is saved to your account.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: () => {
-            mediumTap();
-            signOut();
-          },
-        },
-      ]
-    );
+  async function handleSignOut() {
+    mediumTap();
+    await signOut();
+    router.replace('/auth');
   }
 
   function handleReset() {
