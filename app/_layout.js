@@ -1,4 +1,5 @@
-import { Stack, Redirect } from 'expo-router';
+import { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { AppProvider, useApp } from '../src/context/AppContext';
@@ -6,17 +7,25 @@ import { colors } from '../src/constants/theme';
 
 function RootNavigator() {
   const { state } = useApp();
-  const { authLoading, user } = state;
+  const { authLoading, user, loaded } = state;
+  const segments = useSegments();
+  const router = useRouter();
 
-  if (authLoading) {
+  useEffect(() => {
+    if (authLoading || !loaded) return;
+    const inAuthGroup = segments[0] === 'auth';
+    if (!user && !inAuthGroup) {
+      router.replace('/auth');
+    }
+  }, [user, authLoading, loaded]);
+
+  if (authLoading || !loaded) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
-
-  if (!user) return <Redirect href="/auth" />;
 
   return (
     <>
@@ -28,8 +37,8 @@ function RootNavigator() {
           animation: 'slide_from_right',
         }}
       >
+        <Stack.Screen name="auth" />
         <Stack.Screen name="index" />
-        <Stack.Screen name="auth" options={{ animation: 'fade' }} />
         <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
         <Stack.Screen
           name="create-habit"
