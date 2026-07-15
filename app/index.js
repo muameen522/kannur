@@ -8,7 +8,7 @@ import {
   Platform,
   Animated,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
 import { useApp } from '../src/context/AppContext';
 import { colors, fontSize, spacing, borderRadius, shadow } from '../src/constants/theme';
 import HabitCard from '../src/components/HabitCard';
@@ -26,7 +26,9 @@ const MONTHS = [
 export default function HomeScreen() {
   const router = useRouter();
   const { state, checkHabit } = useApp();
-  const { habits, challenges, onboardingComplete } = state;
+  const { habits, challenges, onboardingComplete, user, loaded } = state;
+
+  if (loaded && !user) return <Redirect href="/auth" />;
 
   const [rewardVisible, setRewardVisible] = useState(false);
   const [rewardMessage, setRewardMessage] = useState('');

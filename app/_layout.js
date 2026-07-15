@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, Redirect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { AppProvider, useApp } from '../src/context/AppContext';
@@ -16,6 +16,8 @@ function RootNavigator() {
     );
   }
 
+  if (!user) return <Redirect href="/auth" />;
+
   return (
     <>
       <StatusBar style="light" />
@@ -26,24 +28,19 @@ function RootNavigator() {
           animation: 'slide_from_right',
         }}
       >
-        {!user ? (
-          <Stack.Screen name="auth" options={{ animation: 'fade' }} />
-        ) : (
-          <>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
-            <Stack.Screen
-              name="create-habit"
-              options={{
-                presentation: 'modal',
-                animation: 'slide_from_bottom',
-              }}
-            />
-            <Stack.Screen name="habit/[id]" />
-            <Stack.Screen name="challenges" />
-            <Stack.Screen name="settings" />
-          </>
-        )}
+        <Stack.Screen name="index" />
+        <Stack.Screen name="auth" options={{ animation: 'fade' }} />
+        <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
+        <Stack.Screen
+          name="create-habit"
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+          }}
+        />
+        <Stack.Screen name="habit/[id]" />
+        <Stack.Screen name="challenges" />
+        <Stack.Screen name="settings" />
       </Stack>
     </>
   );
